@@ -1,6 +1,10 @@
-/Task1Client/Debug/Task1Client.exe
-/Task1Server/Debug/Task1Server.exe
+/Task1Client/Debug
+/Task1Server/Debug
 /Task1Client/Task1Client/Debug
 /Task1Server/Task1Server/Debug
+/Task1Client/.vs
+/Task1Server/.vs
 /Task1Server/Task1Server/temp
+/Task1Client/Debug/Task1Client.pdb
+/Task1Server/Debug/Task1Server.pdb
 

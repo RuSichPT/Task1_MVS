@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream> 
 #include <ctime>
+#include <WS2tcpip.h>
 
 #define MAX_NUMBER_REPEAT    10
 
@@ -60,7 +61,7 @@ bool MyClient::connectTCP()
     sockaddr_in sockAddrConnect;
     ZeroMemory(&sockAddrConnect, sizeof(sockAddrConnect));
     sockAddrConnect.sin_family = AF_INET;
-    sockAddrConnect.sin_addr.s_addr = inet_addr(m_ip_string.c_str());
+    inet_pton(sockAddrConnect.sin_family, m_ip_string.c_str(), &sockAddrConnect.sin_addr.s_addr);
     sockAddrConnect.sin_port = htons(m_port);
 
     if (connect(m_socketTCP, (sockaddr*)&sockAddrConnect, sizeof(sockAddrConnect)) != SOCKET_ERROR)
@@ -103,15 +104,20 @@ bool MyClient::loadFile(std::string fileName)
 void MyClient::sendTCP(int portUDP, std::string fileName)
 {
     // Отправка порта UDP и имени файла
-    InitPacket_t initPacket;
-    initPacket.type = PacketType_t::INIT;
-    initPacket.port = portUDP;
-    initPacket.fileName = fileName;
+    uint8_t* buf = new uint8_t[MAX_SIZE_PACKET];
+    ZeroMemory(buf, MAX_SIZE_PACKET);
 
-    if (send(m_socketTCP, (char*)&initPacket, (int)sizeof(initPacket), 0) != SOCKET_ERROR)
+    DataPacket_t *initPacket = (DataPacket_t*)buf;
+    initPacket->type = PacketType_t::INIT;
+    initPacket->id_port.port = portUDP;
+    CopyMemory(initPacket->data, fileName.c_str(), fileName.size());
+    initPacket->size = fileName.size() + sizeof(initPacket);
+
+    if (send(m_socketTCP, (char*)initPacket, initPacket->size, 0) != SOCKET_ERROR)
     {
-        std::cout << "The message sended: " << initPacket.port << " " << initPacket.fileName << std::endl;
+        std::cout << "The message sended: " << initPacket->id_port.port << " " << initPacket->data << std::endl;
     }
+    delete[] buf;
 }
 
 void MyClient::sendUDP(int portUDP, int timeOutMiliSec)
@@ -143,7 +149,7 @@ void MyClient::sendUDP(int portUDP, int timeOutMiliSec)
     sockaddr_in sockAddr;
     ZeroMemory(&sockAddr, sizeof(sockAddr));
     sockAddr.sin_family = AF_INET;
-    sockAddr.sin_addr.s_addr = inet_addr(m_ip_string.c_str());
+    inet_pton(sockAddr.sin_family, m_ip_string.c_str(), &sockAddr.sin_addr.s_addr);
     sockAddr.sin_port = htons(portUDP);
 
     uint8_t *packetBuf = new uint8_t[MAX_SIZE_PACKET];
@@ -168,18 +174,18 @@ void MyClient::sendUDP(int portUDP, int timeOutMiliSec)
             packet->size = sizeof(DataPacket_t) + sizeData;
             packet->type = PacketType_t::END;
         }
-        packet->id = i;
+        packet->id_port.id = i;
         CopyMemory(packet->data, &m_fileBuf[indxData], sizeData);
 
         if (sendto(m_socketUDP, (const char*)packet, packet->size, 0, (sockaddr*)&sockAddr, sizeof(sockaddr_in)) != SOCKET_ERROR)
         {
             if (packet->type == PacketType_t::END)
             {
-                std::cout << "Last UDP packet " << packet->id << " sended" << std::endl;
+                std::cout << "Last UDP packet " << packet->id_port.id << " sended" << std::endl;
             }
             else
             {
-                std::cout << "UDP packet " << packet->id << " sended" << std::endl;
+                std::cout << "UDP packet " << packet->id_port.id << " sended" << std::endl;
             }
         }
 
@@ -212,7 +218,7 @@ bool MyClient::waitACK(DataPacket_t *packet, int timeOutMiliSec, sockaddr_in &so
             if (type == PacketType_t::ACK)
             {
                 DataPacket_t* packetRcv = (DataPacket_t*)buf;
-                if (packetRcv->id == packet->id)
+                if (packetRcv->id_port.id == packet->id_port.id)
                 {
                     std::cout << "ACK recieved" << std::endl;
                     return true;
@@ -229,7 +235,7 @@ bool MyClient::waitACK(DataPacket_t *packet, int timeOutMiliSec, sockaddr_in &so
 
             if (sendto(m_socketUDP, (const char*)packet, packet->size, 0, (sockaddr*)&sockAddr, sizeof(sockaddr_in)) != SOCKET_ERROR)
             {
-                std::cout << "repeated UDP packet " << packet->id << " sended" << std::endl;
+                std::cout << "repeated UDP packet " << packet->id_port.id << " sended" << std::endl;
                 numRepeat++;
             }
         }

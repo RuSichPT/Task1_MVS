@@ -73,9 +73,8 @@ bool MyServer::listenTCP()
 
 void MyServer::waitConnection()
 {
-    sockaddr sockAddrAccept;
-    char buf[100];
-    ZeroMemory(buf, 100);
+    uint8_t *buf = new uint8_t[MAX_SIZE_PACKET];
+    ZeroMemory(buf, MAX_SIZE_PACKET);
 
     while (true)
     {
@@ -84,23 +83,25 @@ void MyServer::waitConnection()
         {
             std::cout << "Client connected" << std::endl;
 
-            if (recv(m_socketTCPAccept, buf, 100, 0) != SOCKET_ERROR)
+            if (recv(m_socketTCPAccept, (char*) buf, MAX_SIZE_PACKET, 0) != SOCKET_ERROR)
             {
                 PacketType_t type = (PacketType_t)buf[0];
 
                 if (type == PacketType_t::INIT)
                 {
-                    InitPacket_t* initPacket = (InitPacket_t*)buf;
-                    std::cout << "The message recieved: " << initPacket->port << " " << initPacket->fileName << std::endl;
+                    DataPacket_t* initPacket = (DataPacket_t*)buf;
+                    std::cout << "The message recieved: " << initPacket->id_port.port << " " << initPacket->data << std::endl;
                     handleUDP(initPacket);
                 }
             }
             closesocket(m_socketTCPAccept);
         }
     }
+
+    delete[] buf;
 }
 
-void MyServer::handleUDP(const InitPacket_t *iniPack)
+void MyServer::handleUDP(const DataPacket_t*iniPack)
 {
     // Создание сокета
     m_socketUDP = socket(AF_INET, SOCK_DGRAM, 0);
@@ -117,7 +118,7 @@ void MyServer::handleUDP(const InitPacket_t *iniPack)
     ZeroMemory(&sockAddr, sizeof(sockAddr));
     sockAddr.sin_family = AF_INET;
     sockAddr.sin_addr.s_addr = inet_addr(m_ip_string.c_str());
-    sockAddr.sin_port = htons((unsigned short)iniPack->port);
+    sockAddr.sin_port = htons((unsigned short)iniPack->id_port.port);
 
     if (bind(m_socketUDP, (sockaddr*)&sockAddr, sizeof(sockAddr)) != SOCKET_ERROR)
     {
@@ -144,7 +145,8 @@ void MyServer::handleUDP(const InitPacket_t *iniPack)
         std::cout << "folder not created" << std::endl;
     }
 
-    std::string path = m_folder + "\\" + iniPack->fileName;
+    std::string fileName = std::string((char*)iniPack->data);
+    std::string path = m_folder + "\\" + fileName;
     std::ofstream file(path, std::ios::binary);
     int fileSize = 0;
     int lastRecievedId = 0xFFFFFFFF;
@@ -153,14 +155,14 @@ void MyServer::handleUDP(const InitPacket_t *iniPack)
     {
         if (recv(m_socketUDP, (char*)packetBuf, MAX_SIZE_PACKET, 0) != SOCKET_ERROR)
         {
-            std::cout << "UDP packet " << packet->id << " recieved" << std::endl;            
-            if (sendACK(packet) && packet->id != lastRecievedId)
+            std::cout << "UDP packet " << packet->id_port.id << " recieved" << std::endl;
+            if (sendACK(packet) && packet->id_port.id != lastRecievedId)
             {
                 // Запись в файл
                 int sizeData = packet->size - sizeof(DataPacket_t);
                 file.write((char*)packet->data, sizeData);
                 fileSize += sizeData;
-                lastRecievedId = packet->id;
+                lastRecievedId = packet->id_port.id;
 
 
                 if (packet->type == PacketType_t::END)
@@ -182,7 +184,7 @@ bool MyServer::sendACK(DataPacket_t *packet)
 {
     DataPacket_t ack;
     ack.type = PacketType_t::ACK;
-    ack.id = packet->id;
+    ack.id_port.id = packet->id_port.id;
     if (send(m_socketTCPAccept, (char*)&ack, (int)sizeof(ack), 0) != SOCKET_ERROR)
     {
         std::cout << "ACK sent" << std::endl;
@@ -194,5 +196,4 @@ bool MyServer::sendACK(DataPacket_t *packet)
         return false;
     }
 }
-
 

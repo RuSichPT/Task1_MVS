@@ -24,7 +24,7 @@ public:
 private:
 	bool listenTCP();
 	void waitConnection();
-	void handleUDP(const InitPacket_t *iniPack);
+	void handleUDP(const DataPacket_t *iniPack);
 	bool sendACK(DataPacket_t *packet);
 };
 

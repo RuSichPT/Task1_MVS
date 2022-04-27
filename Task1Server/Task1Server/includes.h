@@ -1,6 +1,7 @@
 #pragma once
 
 #pragma warning(disable:4996) // пока не понимаю зачем, но исправлет ошибку
+#pragma comment(lib, "ws2_32.lib")
 #include <winsock2.h>
 #include <string>
 
@@ -15,18 +16,16 @@ enum class PacketType_t
 	END,
 };
 
-
-struct InitPacket_t
+union Id_port_t
 {
-	PacketType_t	type;
-	int				port;
-	std::string		fileName;
+	int		id;
+	int		port;
 };
 
 struct DataPacket_t
 {
 	PacketType_t	type;
-	int				id;
+	Id_port_t		id_port;
 	int				size;
 	uint8_t			data[];
 };
