@@ -7,4 +7,7 @@
 /Task1Server/Task1Server/temp
 /Task1Client/Debug/Task1Client.pdb
 /Task1Server/Debug/Task1Server.pdb
-
+/Task1Client/x64
+/Task1Server/x64
+/Task1Client/Task1Client/x64
+/Task1Server/Task1Server/x64
